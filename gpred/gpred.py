@@ -32,7 +32,7 @@ def isdir(path):
         raise argparse.ArgumentTypeError(msg)
     return path
 
-
+# python gpred.py -i listeria.fna -p position.csv -o prodigal.csv
 def get_arguments():
     """Retrieves the arguments of the program.
       Returns: An object that contains the arguments
@@ -62,29 +62,58 @@ def get_arguments():
 def read_fasta(fasta_file):
     """Extract the complete genome sequence as a single string
     """
-    pass
+    with open(fasta_file, 'r') as file:
+        seq = ""
+        for line in file:
+            if not line.startswith('>'):
+                seq += line.strip().upper()
+    seq = seq.replace("U", "T")
+    return seq
 
 def find_start(start_regex, sequence, start, stop):
     """Find the start codon
-    """
-    pass
-
-
+    """  
+    if start_regex.search(sequence, start,stop):
+        return start_regex.search(sequence, start, stop).start(0)
+    
 def find_stop(stop_regex, sequence, start):
     """Find the stop codon
     """
-    pass
+    for i in stop_regex.finditer(sequence, start) :
+        if (i.start(0) - start) % 3 == 0: 
+            return i.start(0)
 
 def has_shine_dalgarno(shine_regex, sequence, start, max_shine_dalgarno_distance):
     """Find a shine dalgarno motif before the start codon
     """
-    pass
+    if  shine_regex.search(sequence, start - max_shine_dalgarno_distance, start - 6 ):
+        if start - max_shine_dalgarno_distance >= 0 : 
+            return True 
+    return False 
 
 def predict_genes(sequence, start_regex, stop_regex, shine_regex, 
                   min_gene_len, max_shine_dalgarno_distance, min_gap):
     """Predict most probable genes
     """
-    pass
+    list_genes = []
+    pos_courante = 0
+    while len(sequence) - pos_courante >= min_gap:
+        pos_courante = find_start(start_regex, sequence, pos_courante, len(sequence))
+        if pos_courante:
+            stop =  find_stop(stop_regex, sequence, pos_courante)
+            if stop:
+                len_g = stop + 2 - pos_courante
+                if len_g >= min_gene_len:
+                    if has_shine_dalgarno(shine_regex, sequence, pos_courante, max_shine_dalgarno_distance):
+                        list_genes.append([pos_courante + 1 , stop + 3])
+                        pos_courante = stop + 2 + min_gap
+                    else : 
+                        pos_courante +=1
+                else : 
+                    pos_courante +=1
+            else : 
+                pos_courante +=1
+    return(list_genes)
 
 
 def write_genes_pos(predicted_genes_file, probable_genes):
@@ -147,15 +176,25 @@ def main():
     # Arguments
     args = get_arguments()
     # Let us do magic in 5' to 3'
-    
-    # Don't forget to uncomment !!!
-    # Call these function in the order that you want
-    # We reverse and complement
-    #sequence_rc = reverse_complement(sequence)
-    # Call to output functions
-    #write_genes_pos(args.predicted_genes_file, probable_genes)
-    #write_genes(args.fasta_file, sequence, probable_genes, sequence_rc, probable_genes_comp)
+    sequence = read_fasta(args.genome_file)
+    probable_genes = predict_genes(sequence, start_regex, stop_regex, shine_regex, 
+                  args.min_gene_len, args.max_shine_dalgarno_distance, args.min_gap)
 
+    # Let us do magic in 3' to 5'
+    # We reverse and complement
+    sequence_rc = reverse_complement(sequence)
+    probable_genes_comp_f = predict_genes(sequence_rc, start_regex, stop_regex, shine_regex, 
+                  args.min_gene_len, args.max_shine_dalgarno_distance, args.min_gap)
+    
+    probable_genes_comp = []
+    for i in range(len(probable_genes_comp_f)):
+        pos1 = len(sequence)-probable_genes_comp_f[i][1]
+        pos2 = len(sequence)-probable_genes_comp_f[i][0]
+        probable_genes_comp.append([pos1, pos2])
+
+    # Call to output functions
+    write_genes_pos(args.predicted_genes_file, probable_genes)
+    write_genes(args.genome_file, sequence, probable_genes, sequence_rc, probable_genes_comp)
 
 
 if __name__ == '__main__':
