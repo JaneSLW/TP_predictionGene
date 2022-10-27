@@ -4,7 +4,7 @@ import os
 import csv
 import re
 
-
+# python gpred/gpred.py -i data/listeria.fna
 def isfile(path):
     """Check if path is an existing file.
       :Parameters:
@@ -32,7 +32,7 @@ def isdir(path):
         raise argparse.ArgumentTypeError(msg)
     return path
 
-# python gpred.py -i listeria.fna -p position.csv -o prodigal.csv
+
 def get_arguments():
     """Retrieves the arguments of the program.
       Returns: An object that contains the arguments
@@ -194,7 +194,7 @@ def main():
 
     # Call to output functions
     write_genes_pos(args.predicted_genes_file, probable_genes)
-    write_genes(args.genome_file, sequence, probable_genes, sequence_rc, probable_genes_comp)
+    write_genes(args.fasta_file, sequence, probable_genes, sequence_rc, probable_genes_comp)
 
 
 if __name__ == '__main__':
